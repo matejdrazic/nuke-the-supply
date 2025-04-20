@@ -15,6 +15,10 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "./ICBMToken.sol";
 import "./WarheadToken.sol";
 
+
+// DELETE LATER - TESTING
+import "forge-std/console.sol";
+
 contract NukeTheSupply is Ownable {
     using SafeERC20 for IERC20;
 
@@ -184,6 +188,8 @@ contract NukeTheSupply is Ownable {
 
             // Burn the receiving amount of Warhead tokens
             Warhead.burn(amountOut);
+
+            console.log(amountOut);
 
             // Do we put this here?
             // totalWarheadBought += amountOut; // Track the total amount of Warhead tokens bought by this contract

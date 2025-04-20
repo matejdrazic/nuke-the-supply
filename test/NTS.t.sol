@@ -245,5 +245,11 @@ contract NukeTheSupplyTest is Test {
             uint256 amountOut = ISwapRouter(swapRouter).exactInput(swapParams_);
             console.log(amountOut);
         }
+
+        // Test multihop swap on NukeTheSupply contract
+        {
+            vm.warp(block.timestamp + 7 days);
+            nts.sell();
+        }
     }
 }
