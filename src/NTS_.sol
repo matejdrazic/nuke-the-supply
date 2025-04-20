@@ -204,4 +204,14 @@ contract NukeTheSupply is Ownable {
     // =======================================================
     // ===============      VIEW FUNCTIONS      ==============
     // =======================================================
+
+    // Fetch the address of the ICBM token
+    function getICBMTokenAddress() public view returns (address) {
+        return address(ICBM);
+    }   
+
+    // Fetch the address of the Warhead token
+    function getWarheadTokenAddress() public view returns (address) {
+        return address(Warhead);
+    }
 }
