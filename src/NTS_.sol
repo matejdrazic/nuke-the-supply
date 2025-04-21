@@ -15,7 +15,6 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "./ICBMToken.sol";
 import "./WarheadToken.sol";
 
-
 // DELETE LATER - TESTING
 import "forge-std/console.sol";
 
@@ -38,8 +37,8 @@ contract NukeTheSupply is Ownable {
     uint256 public totalICBMTokensBurned; // Total amount of ICBM tokens burned by users with "nuke" function, since deployment
     uint256 public totalICMBTokensSold; // Total amount of ICBM tokens sold by this contract, since deployment
     uint256 public day; // Day counter variable - counting since deployment
-    uint256 public deploymentTimestamp; // potrebno za postavljanje uvjeta za prvi poziv sell funkciji i faze rada ugovora
-    uint256 public nextSellTimestamp; // potrebno za postavljanje svih drugih uvjeta za sell funkciju
+    uint256 public deploymentTimestamp; // used to set conditions for the first call to the sell function and contract phase control
+    uint256 public nextSellTimestamp; // used to enforce delay between subsequent sell calls
     uint256 public constant PREPARATION_DURATION = 48 hours; // Change to 2 minutes for testing purposes
     uint256 public constant OPERATIONS_DURATION = 365 days; // Time period during which the contract is selling ICBM tokens
     uint256 public constant ARM_DURATION = 24 hours; // Time period during which ICBM tokens are armed
@@ -75,10 +74,10 @@ contract NukeTheSupply is Ownable {
     constructor(address owner_, address WETH_, address swapRouter_) Ownable(owner_) {
         deploymentTimestamp = block.timestamp;
         day = 1;
-        ICBM = new ICBMToken("ICBM", "ICBM", ICBM_TOKEN_TOTAL_SUPPLY, address(this)); // kreatoru ide 830M ICBM tokena da napravi trading par ICBM/WETH na uniswapu v3
-        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this)); // kreatoru ide 1K WH tokena da napravi trading par WH/WETH na uniswapu v3
-        ICBM.transfer(owner(), ICBM_TOKEN_TOTAL_SUPPLY - NTS_CONTRACT_ICBM_BALANCE); // kreatoru ide 100M ICBM tokena da napravi trading par ICBM/WETH na uniswapu v3
-        Warhead.transfer(owner(), INITIAL_WARHEAD_TOKEN_SUPPLY); // kreatoru ide sav inicijalni supply za WH/WETH trading par
+        ICBM = new ICBMToken("ICBM", "ICBM", ICBM_TOKEN_TOTAL_SUPPLY, address(this)); // creator gets 830M ICBM tokens to create the ICBM/WETH pair on Uniswap V3
+        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this)); // creator gets 1K WH tokens to create the WH/WETH pair on Uniswap V3
+        ICBM.transfer(owner(), ICBM_TOKEN_TOTAL_SUPPLY - NTS_CONTRACT_ICBM_BALANCE); // creator receives 100M ICBM tokens to create ICBM/WETH trading pair on Uniswap V3
+        Warhead.transfer(owner(), INITIAL_WARHEAD_TOKEN_SUPPLY); // creator receives the full initial WH supply for WH/WETH trading pair
 
         WETH = WETH_; // Wrapped ETH (sepolia)
         swapRouter = swapRouter_; // Uniswap V3 router address
@@ -116,22 +115,18 @@ contract NukeTheSupply is Ownable {
             if (block.timestamp >= userBatches[i].endTime) {
                 // Calculate the amount to burn and return ICBM tokens to user
                 uint256 ICBMTokenAmount = userBatches[i].amount;
-                // Calculate the amount of this contracts token amount to burn
-                uint256 burnAmount = ICBMTokenAmount / 10;
-                // Calculate the total amount of ICBM tokens to return to user
+                uint256 burnAmount = ICBMTokenAmount / 10; // burn 10%
                 totalICBMToReturn += ICBMTokenAmount;
 
-                // Handling the supply
-                totalICBMBurned += burnAmount; // We need to make sure this contract HAS enough ICBM tokens to burn
+                totalICBMBurned += burnAmount; // Make sure contract holds enough tokens to burn
                 require(ICBM.balanceOf(address(this)) >= burnAmount, "Not enough ICBM tokens in contract");
 
-                // We track the balance of this contract in a storage variable because dynamic .balaneOf() calls will also
-                // track in the tokens user armed to the contract
+                // We track the contract's balance in a storage variable, since .balanceOf() would include user-armings too
                 NTS_CONTRACT_ICBM_BALANCE -= burnAmount;
                 totalICBMTokensBurned += burnAmount;
                 totalArmedICBMAmount -= ICBMTokenAmount;
 
-                // Mint Warhead tokens to the user in 1:1 ratio of the ICBM tokens this contract is burning
+                // Mint Warhead tokens to the user in 1:1 ratio with burned ICBM
                 Warhead.mint(_msgSender(), burnAmount);
 
                 // Emit event
@@ -145,17 +140,18 @@ contract NukeTheSupply is Ownable {
             }
         }
 
-        // Require there are some ICBM tokens to return to user
+        // Require that the user has at least one batch ready to be nuked
         require(totalICBMToReturn > 0, "No batches ready");
-        // Transfer ICBM tokens back to the user
+        // Transfer the ICBM tokens back to the user
         require(ICBM.transfer(_msgSender(), totalICBMToReturn), "Transfer failed");
-        // Burn the ICBM tokens from this contract
+        // Burn the ICBM tokens
         ICBM.burn(totalICBMTokensBurned);
     }
 
-    /////////// funkcija koju može pozvati bilo tko, svaka 24 sata, računa količinu ICBM-a za prodaju, dobiveni WETH koristi za kupnju WH tokena
-    /////////// nagrađuje pozivatelja funkcije sa 0.001% supply-a WH tokena, minta WH i šalje ih pozivatelju funkcije
-    function sell() external inOperationsPhase {
+    /////////// Function that can be called by anyone, once every 24 hours.
+    /////////// It calculates how much ICBM should be sold, uses the WETH proceeds to buy Warhead tokens,
+    /////////// and rewards the caller with 0.001% of the current WH supply by minting new WH tokens to them.
+    function sell(uint256 expectedOutAmount_) external inOperationsPhase {
         require(block.timestamp >= nextSellTimestamp, "Can not sell yet");
         require(day <= 365, "Sell period ended");
 
@@ -176,34 +172,32 @@ contract NukeTheSupply is Ownable {
 
             // See more: https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps
             ISwapRouter.ExactInputParams memory swapParams_ = ISwapRouter.ExactInputParams({
-                path: abi.encodePacked(address(ICBM), uint24(3000), WETH, uint24(3000), address(Warhead)), // need to put correct fee tier
+                path: abi.encodePacked(address(ICBM), uint24(3000), WETH, uint24(3000), address(Warhead)), // use correct fee tiers
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: dailySell,
-                amountOutMinimum: 0 // Handle this more securely
+                amountOutMinimum: expectedOutAmount_
             });
 
             // Executes the swap
             uint256 amountOut = ISwapRouter(swapRouter).exactInput(swapParams_);
 
-            // Burn the receiving amount of Warhead tokens
+            // Burn the Warhead tokens bought with WETH
             Warhead.burn(amountOut);
 
-            console.log(amountOut);
+            // Optionally track bought amount
+            // totalWarheadBought += amountOut;
 
-            // Do we put this here?
-            // totalWarheadBought += amountOut; // Track the total amount of Warhead tokens bought by this contract
-
-            // Mint to caller 0.001% of the Warhead current total supply
+            // Reward the caller with 0.001% of the current WH supply
             uint256 warheadTokenSupply = Warhead.totalSupply();
             uint256 rewardAmount = warheadTokenSupply / 100000;
             if (rewardAmount > 0) {
                 Warhead.mint(_msgSender(), rewardAmount);
             }
 
-            // Change necessary state
-            day++; // postavljanje day varijable za sljedeću kalkulaciju u sell funkciji
-            nextSellTimestamp = block.timestamp + SELL_INTERVAL; // postavljanje novog timestampa prije kojeg se sell funkcija ne može pozvati
+            // State updates
+            day++; // increment day for next sell calculation
+            nextSellTimestamp = block.timestamp + SELL_INTERVAL; // set next allowed sell timestamp
         }
     }
 
