@@ -96,9 +96,9 @@ contract NukeTheSupplyTest is Test {
         warhead = WarheadToken(nts.getWarheadTokenAddress());
 
         // Assert correct balances of ICBM and Warhead tokens
-        assertEq(icbm.balanceOf(owner), 100_000_000 ether);
-        assertEq(warhead.balanceOf(owner), 1000 ether);
-        assertEq(icbm.balanceOf(address(nts)), 730_000_000 ether);
+        assertEq(icbm.balanceOf(owner), 125_000_000 ether);
+        assertEq(warhead.balanceOf(owner), 12_500_000 ether);
+        assertEq(icbm.balanceOf(address(nts)), 375_000_000 ether);
 
         // Get 2002 weth
         vm.deal(owner, 2002 ether);
@@ -150,8 +150,8 @@ contract NukeTheSupplyTest is Test {
             (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
 
             // Log the amounts
-            console.log("Amount of ICBM tokens in liquidity:        ", amount0);
-            console.log("Amount of WETH tokens in liquidity:        ", amount1);
+            console.log("Amount of ICBM tokens in liquidity:            ", amount0);
+            console.log("Amount of WETH tokens in liquidity:            ", amount1);
 
             // Approve swap router to spend WETH
             TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
@@ -168,7 +168,7 @@ contract NukeTheSupplyTest is Test {
                 sqrtPriceLimitX96: 0
             });
             uint256 amountOut = swapRouter.exactInputSingle(swapParams);
-            console.log("Amount of ICBM tokens received from swap:      ", amountOut);
+            console.log("Amount of ICBM tokens received from swap:       ", amountOut);
         }
 
         // SECOND POOL INITIALIZING WETH/WARHEAD
@@ -188,7 +188,7 @@ contract NukeTheSupplyTest is Test {
             address pool = uniswapFactory.createPool(token0, token1, 3000);
             assertNotEq(pool, address(0));
 
-            uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(0);
+            uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(-94340);
 
             // set the initial price for the pool
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
@@ -205,7 +205,7 @@ contract NukeTheSupplyTest is Test {
                 fee: 3000,
                 tickLower: -887220,
                 tickUpper: 887220,
-                amount0Desired: 1000 ether,
+                amount0Desired: 12_500_000 ether,
                 amount1Desired: 1000 ether,
                 amount0Min: 0,
                 amount1Min: 0,
@@ -215,8 +215,8 @@ contract NukeTheSupplyTest is Test {
             (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
 
             // Log the amounts
-            console.log("Amount of Warhead tokens in liquidity:         ", amount0);
-            console.log("Amount of WETH tokens in liquidity:            ", amount1);
+            console.log("Amount of Warhead tokens in liquidity:          ", amount0);
+            console.log("Amount of WETH tokens in liquidity:             ", amount1);
 
             // Approve swap router to spend WETH
             TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
@@ -233,7 +233,7 @@ contract NukeTheSupplyTest is Test {
                 sqrtPriceLimitX96: 0
             });
             uint256 amountOut = swapRouter.exactInputSingle(swapParams);
-            console.log("Amount of Warhead tokens received from swap:      ", amountOut);
+            console.log("Amount of Warhead tokens received from swap:    ", amountOut);
         }
 
         // Make a multihop swap

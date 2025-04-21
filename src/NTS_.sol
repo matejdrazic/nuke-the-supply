@@ -26,10 +26,10 @@ contract NukeTheSupply is Ownable {
     WarheadToken public Warhead;
 
     // Token supply values
-    uint256 public constant ICBM_TOKEN_TOTAL_SUPPLY = 830_000_000 * 10 ** 18; // 830 million
-    uint256 public constant INITIAL_WARHEAD_TOKEN_SUPPLY = 1_000 * 10 ** 18; // 1 thousand
-    uint256 public NTS_CONTRACT_ICBM_BALANCE = 730_000_000 * 10 ** 18; // 730 million
-    uint256 public constant DAILY_ICBM_SELL_AMOUNT = 2_000_000 * 10 ** 18; // 2 million per day
+    uint256 public constant ICBM_TOKEN_TOTAL_SUPPLY = 500_000_000 ether; // 500 million
+    uint256 public constant INITIAL_WARHEAD_TOKEN_SUPPLY = 12_500_000 ether; // 1 thousand
+    uint256 public NTS_CONTRACT_ICBM_BALANCE = 375_000_000 ether; // 375 million
+    uint256 public constant DAILY_ICBM_SELL_AMOUNT = 2_500_000 ether; // 2.5 million per day
 
     // Token values
     uint256 public totalArmedICBMAmount; // Total amount of user supplied tokens in "ARM" state
@@ -40,7 +40,7 @@ contract NukeTheSupply is Ownable {
     uint256 public deploymentTimestamp; // used to set conditions for the first call to the sell function and contract phase control
     uint256 public nextSellTimestamp; // used to enforce delay between subsequent sell calls
     uint256 public constant PREPARATION_DURATION = 48 hours; // Change to 2 minutes for testing purposes
-    uint256 public constant OPERATIONS_DURATION = 365 days; // Time period during which the contract is selling ICBM tokens
+    uint256 public constant OPERATIONS_DURATION = 150 days; // Time period during which the contract is selling ICBM tokens
     uint256 public constant ARM_DURATION = 24 hours; // Time period during which ICBM tokens are armed
     uint256 public constant SELL_INTERVAL = 24 hours; // Time period between sell functions
     address public immutable WETH; // Wrapped ETH (sepolia)
@@ -88,7 +88,7 @@ contract NukeTheSupply is Ownable {
     // =======================================================
 
     function arm(uint256 amount_) external {
-        require(day < 364, "Arm phase over"); // Users end arming ICBM tokens after 364 days
+        require(day < 149, "Arm phase over"); // Users end arming ICBM tokens after 364 days
         require(amount_ > 0, "Amount must be greater than 0");
 
         // Create new batch in memory
@@ -153,7 +153,7 @@ contract NukeTheSupply is Ownable {
     /////////// and rewards the caller with 0.001% of the current WH supply by minting new WH tokens to them.
     function sell(uint256 expectedOutAmount_) external inOperationsPhase {
         require(block.timestamp >= nextSellTimestamp, "Can not sell yet");
-        require(day <= 365, "Sell period ended");
+        require(day <= 150, "Sell period ended");
 
         uint256 dailySell = (DAILY_ICBM_SELL_AMOUNT * day) > (totalICMBTokensSold + totalICBMTokensBurned)
             ? (DAILY_ICBM_SELL_AMOUNT * day) - (totalICMBTokensSold + totalICBMTokensBurned)
@@ -186,7 +186,7 @@ contract NukeTheSupply is Ownable {
             Warhead.burn(amountOut);
 
             // Optionally track bought amount
-            // totalWarheadBought += amountOut;
+            totalWarheadBought += amountOut;
 
             // Reward the caller with 0.001% of the current WH supply
             uint256 warheadTokenSupply = Warhead.totalSupply();
