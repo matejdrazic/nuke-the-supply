@@ -15,8 +15,8 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "./ICBMToken.sol";
 import "./WarheadToken.sol";
 
-// DELETE LATER - TESTING
-import "forge-std/console.sol";
+
+// IMPORTANT NOTE: Fee tier for uniswap pools is set as fixed in this contract to 0.3% (3000).
 
 contract NukeTheSupply is Ownable {
     using SafeERC20 for IERC20;
@@ -61,10 +61,10 @@ contract NukeTheSupply is Ownable {
     event Bought(uint256 day, uint256 warheadBought);
 
     // MODIFIERS
-    modifier inPreparationPhase() {
-        require(block.timestamp < deploymentTimestamp + PREPARATION_DURATION, "Preparation phase ended");
-        _;
-    }
+    // modifier inPreparationPhase() {
+    //     require(block.timestamp < deploymentTimestamp + PREPARATION_DURATION, "Preparation phase ended");
+    //     _;
+    // }
 
     modifier inOperationsPhase() {
         require(block.timestamp >= deploymentTimestamp + PREPARATION_DURATION, "Operations phase not started");
@@ -74,10 +74,10 @@ contract NukeTheSupply is Ownable {
     constructor(address owner_, address WETH_, address swapRouter_) Ownable(owner_) {
         deploymentTimestamp = block.timestamp;
         day = 1;
-        ICBM = new ICBMToken("ICBM", "ICBM", ICBM_TOKEN_TOTAL_SUPPLY, address(this)); // creator gets 830M ICBM tokens to create the ICBM/WETH pair on Uniswap V3
-        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this)); // creator gets 1K WH tokens to create the WH/WETH pair on Uniswap V3
-        ICBM.transfer(owner(), ICBM_TOKEN_TOTAL_SUPPLY - NTS_CONTRACT_ICBM_BALANCE); // creator receives 100M ICBM tokens to create ICBM/WETH trading pair on Uniswap V3
-        Warhead.transfer(owner(), INITIAL_WARHEAD_TOKEN_SUPPLY); // creator receives the full initial WH supply for WH/WETH trading pair
+        ICBM = new ICBMToken("ICBM", "ICBM", ICBM_TOKEN_TOTAL_SUPPLY, address(this));
+        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this)); // Creator gets 12,5M WH tokens to create the WH/WETH pair on Uniswap V3
+        ICBM.transfer(owner(), ICBM_TOKEN_TOTAL_SUPPLY - NTS_CONTRACT_ICBM_BALANCE); // Creator receives 125M ICBM tokens to create ICBM/WETH trading pair on Uniswap V3
+        Warhead.transfer(owner(), INITIAL_WARHEAD_TOKEN_SUPPLY); // Creator receives the full initial WH supply for WH/WETH trading pair
 
         WETH = WETH_; // Wrapped ETH (sepolia)
         swapRouter = swapRouter_; // Uniswap V3 router address
@@ -107,7 +107,7 @@ contract NukeTheSupply is Ownable {
         // Get the user's batches from storage
         ArmBatch[] storage userBatches = userArmBatches[msg.sender];
         uint256 totalICBMToReturn = 0;
-        uint256 totalICBMBurned = 0;
+        uint256 totalICBMToBurn = 0;
 
         // Check if the user has any batches
         for (uint256 i = 0; i < userBatches.length;) {
@@ -118,8 +118,7 @@ contract NukeTheSupply is Ownable {
                 uint256 burnAmount = ICBMTokenAmount / 10; // burn 10%
                 totalICBMToReturn += ICBMTokenAmount;
 
-                totalICBMBurned += burnAmount; // Make sure contract holds enough tokens to burn
-                require(ICBM.balanceOf(address(this)) >= burnAmount, "Not enough ICBM tokens in contract");
+                totalICBMToBurn += burnAmount; // Make sure contract holds enough tokens to burn
 
                 // We track the contract's balance in a storage variable, since .balanceOf() would include user-armings too
                 NTS_CONTRACT_ICBM_BALANCE -= burnAmount;
@@ -145,7 +144,7 @@ contract NukeTheSupply is Ownable {
         // Transfer the ICBM tokens back to the user
         require(ICBM.transfer(_msgSender(), totalICBMToReturn), "Transfer failed");
         // Burn the ICBM tokens
-        ICBM.burn(totalICBMTokensBurned);
+        ICBM.burn(totalICBMToBurn);
     }
 
     /////////// Function that can be called by anyone, once every 24 hours.
@@ -167,7 +166,6 @@ contract NukeTheSupply is Ownable {
              * Uniswap trading happens here:
              * dailySell amount of ICBM tokens is sold for WETH, WETH is then used for buying Warhead tokens, those Warhead tokens are then burned
              */
-
             TransferHelper.safeApprove(address(ICBM), address(swapRouter), dailySell); // approve the swapRouter to spend ICBM tokens
 
             // See more: https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps
@@ -190,7 +188,7 @@ contract NukeTheSupply is Ownable {
 
             // Reward the caller with 0.001% of the current WH supply
             uint256 warheadTokenSupply = Warhead.totalSupply();
-            uint256 rewardAmount = warheadTokenSupply / 100000;
+            uint256 rewardAmount = warheadTokenSupply / 100_000;
             if (rewardAmount > 0) {
                 Warhead.mint(_msgSender(), rewardAmount);
             }
@@ -208,10 +206,56 @@ contract NukeTheSupply is Ownable {
     // Fetch the address of the ICBM token
     function getICBMTokenAddress() public view returns (address) {
         return address(ICBM);
-    }   
+    }
 
     // Fetch the address of the Warhead token
     function getWarheadTokenAddress() public view returns (address) {
         return address(Warhead);
+    }
+
+    // Get the amount of ICBM tokens user has in ARM mode
+    function getUserArmedICBM(address user) external view returns (uint256) {
+        // ICBM tokens in ARM mode
+        ArmBatch[] storage batches = userArmBatches[user];
+        uint256 totalArmed;
+        for (uint256 i = 0; i < batches.length; i++) {
+            totalArmed += batches[i].amount;
+        }
+        return totalArmed;
+    }
+
+    // Get the amount of ICBM tokens user has ready to be "NUKE"
+    function getUserReadyToNuke(address user) external view returns (uint256) {
+        // ICBM tokens user is ready to "NUKE"
+        ArmBatch[] storage batches = userArmBatches[user];
+        uint256 totalReady;
+        for (uint256 i = 0; i < batches.length; i++) {
+            if (block.timestamp >= batches[i].endTime) {
+                totalReady += batches[i].amount;
+            }
+        }
+        return totalReady;
+    }
+
+    function getTotalBurned() external view returns (uint256) {
+        return totalICBMTokensBurned;
+    }
+
+    function getTotalSold() external view returns (uint256) {
+        return totalICMBTokensSold;
+    }
+
+    function getCurrentDay() external view returns (uint256) {
+        return day;
+    }
+
+    function getRemainingSupply() external view returns (uint256) {
+        return NTS_CONTRACT_ICBM_BALANCE;
+    }
+
+    function getDailySell() external view returns (uint256) {
+        return (DAILY_ICBM_SELL_AMOUNT * day) > (totalICMBTokensSold + totalICBMTokensBurned)
+            ? (DAILY_ICBM_SELL_AMOUNT * day) - (totalICMBTokensSold + totalICBMTokensBurned)
+            : 0;
     }
 }
