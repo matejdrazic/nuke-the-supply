@@ -15,7 +15,6 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "./ICBMToken.sol";
 import "./WarheadToken.sol";
 
-
 // IMPORTANT NOTE: Fee tier for uniswap pools is set as fixed in this contract to 0.3% (3000).
 
 contract NukeTheSupply is Ownable {
@@ -27,7 +26,7 @@ contract NukeTheSupply is Ownable {
 
     // Token supply values
     uint256 public constant ICBM_TOKEN_TOTAL_SUPPLY = 500_000_000 ether; // 500 million
-    uint256 public constant INITIAL_WARHEAD_TOKEN_SUPPLY = 12_500_000 ether; // 1 thousand
+    uint256 public constant INITIAL_WARHEAD_TOKEN_SUPPLY = 12_500_000 ether; // 12.5 million
     uint256 public NTS_CONTRACT_ICBM_BALANCE = 375_000_000 ether; // 375 million
     uint256 public constant DAILY_ICBM_SELL_AMOUNT = 2_500_000 ether; // 2.5 million per day
 
@@ -37,13 +36,13 @@ contract NukeTheSupply is Ownable {
     uint256 public totalICBMTokensBurned; // Total amount of ICBM tokens burned by users with "nuke" function, since deployment
     uint256 public totalICMBTokensSold; // Total amount of ICBM tokens sold by this contract, since deployment
     uint256 public day; // Day counter variable - counting since deployment
-    uint256 public deploymentTimestamp; // used to set conditions for the first call to the sell function and contract phase control
-    uint256 public nextSellTimestamp; // used to enforce delay between subsequent sell calls
+    uint256 public deploymentTimestamp; // Used to set conditions for the first call to the sell function and contract phase control
+    uint256 public nextSellTimestamp; // Used to enforce delay between subsequent sell calls
     uint256 public constant PREPARATION_DURATION = 48 hours; // Change to 2 minutes for testing purposes
     uint256 public constant OPERATIONS_DURATION = 150 days; // Time period during which the contract is selling ICBM tokens
     uint256 public constant ARM_DURATION = 24 hours; // Time period during which ICBM tokens are armed
     uint256 public constant SELL_INTERVAL = 24 hours; // Time period between sell functions
-    address public immutable WETH; // Wrapped ETH (sepolia)
+    address public immutable WETH; // Wrapped ETH
     address public swapRouter; // Uniswap V3 router address
 
     // Structs and mapping for user's batches of armed ICBM tokens
@@ -75,11 +74,11 @@ contract NukeTheSupply is Ownable {
         deploymentTimestamp = block.timestamp;
         day = 1;
         ICBM = new ICBMToken("ICBM", "ICBM", ICBM_TOKEN_TOTAL_SUPPLY, address(this));
-        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this)); // Creator gets 12,5M WH tokens to create the WH/WETH pair on Uniswap V3
+        Warhead = new WarheadToken("Warhead", "WH", INITIAL_WARHEAD_TOKEN_SUPPLY, address(this));
         ICBM.transfer(owner(), ICBM_TOKEN_TOTAL_SUPPLY - NTS_CONTRACT_ICBM_BALANCE); // Creator receives 125M ICBM tokens to create ICBM/WETH trading pair on Uniswap V3
         Warhead.transfer(owner(), INITIAL_WARHEAD_TOKEN_SUPPLY); // Creator receives the full initial WH supply for WH/WETH trading pair
 
-        WETH = WETH_; // Wrapped ETH (sepolia)
+        WETH = WETH_; // Wrapped ETH
         swapRouter = swapRouter_; // Uniswap V3 router address
     }
 
@@ -125,9 +124,6 @@ contract NukeTheSupply is Ownable {
                 totalICBMTokensBurned += burnAmount;
                 totalArmedICBMAmount -= ICBMTokenAmount;
 
-                // Mint Warhead tokens to the user in 1:1 ratio with burned ICBM
-                Warhead.mint(_msgSender(), burnAmount);
-
                 // Emit event
                 emit Nuked(_msgSender(), ICBMTokenAmount, burnAmount, burnAmount);
 
@@ -145,6 +141,8 @@ contract NukeTheSupply is Ownable {
         require(ICBM.transfer(_msgSender(), totalICBMToReturn), "Transfer failed");
         // Burn the ICBM tokens
         ICBM.burn(totalICBMToBurn);
+        // Mint Warhead tokens to the user in 1:1 ratio with burned ICBM
+        Warhead.mint(_msgSender(), totalICBMToBurn);
     }
 
     /////////// Function that can be called by anyone, once every 24 hours.
@@ -183,7 +181,7 @@ contract NukeTheSupply is Ownable {
             // Burn the Warhead tokens bought with WETH
             Warhead.burn(amountOut);
 
-            // Optionally track bought amount
+            // Track bought amount
             totalWarheadBought += amountOut;
 
             // Reward the caller with 0.001% of the current WH supply
@@ -194,8 +192,8 @@ contract NukeTheSupply is Ownable {
             }
 
             // State updates
-            day++; // increment day for next sell calculation
-            nextSellTimestamp = block.timestamp + SELL_INTERVAL; // set next allowed sell timestamp
+            day++; // Increment day for next sell calculation
+            nextSellTimestamp = block.timestamp + SELL_INTERVAL; // Set next allowed sell timestamp
         }
     }
 
