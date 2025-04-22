@@ -254,14 +254,13 @@ contract NukeTheSupplyTest is Test {
             console.log("Amount of Warhead tokens received from multihop swap:      ", amountOut);
         }
 
+        // Arm -> Nuke -> Sell
+        
+
         // Test multihop swap on NukeTheSupply contract
         {
             vm.warp(block.timestamp + 7 days);
             nts.sell(0);
         }
-
-
-
-        // Next, we will test the NukeTheSupply core functionalities: arm -> nuke -> sell
     }
 }

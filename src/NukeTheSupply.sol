@@ -86,6 +86,11 @@ contract NukeTheSupply is Ownable {
     // ===============      MAIN FUNCTIONS      ==============
     // =======================================================
 
+    /*
+     * @dev: This function is called by the user to "ARM" their ICBM tokens.
+     * The function checks if the user has enough ICBM tokens, and if so, it creates a new batch of armed ICBM tokens.
+     * The function also transfers the ICBM tokens from the user to this contract.
+     */
     function arm(uint256 amount_) external {
         require(day < 149, "Arm phase over"); // Users end arming ICBM tokens after 364 days
         require(amount_ > 0, "Amount must be greater than 0");
@@ -102,6 +107,12 @@ contract NukeTheSupply is Ownable {
         emit Armed(msg.sender, amount_, block.timestamp + ARM_DURATION);
     }
 
+    /*
+     * @dev: This function is called by the user to "NUKE" their armed ICBM tokens.
+     * The function checks if the batch is ready to be nuked, and if so, it returns the 'ARMED' ICBM tokens to the user,
+     * while burning 10% of the ICBM tokens amount of the contracts balance.
+     * The function also mints Warhead tokens to the user in a 1:1 ratio with the burned ICBM tokens.
+     */
     function nuke() external {
         // Get the user's batches from storage
         ArmBatch[] storage userBatches = userArmBatches[msg.sender];
@@ -145,9 +156,12 @@ contract NukeTheSupply is Ownable {
         Warhead.mint(_msgSender(), totalICBMToBurn);
     }
 
-    /////////// Function that can be called by anyone, once every 24 hours.
-    /////////// It calculates how much ICBM should be sold, uses the WETH proceeds to buy Warhead tokens,
-    /////////// and rewards the caller with 0.001% of the current WH supply by minting new WH tokens to them.
+    /*
+     * @dev: This function sells ICBM tokens for WETH, then buys Warhead tokens with WETH and burns them.
+     * The function is called once a day, and the amount of ICBM tokens sold increases by 2.5 million every day.
+     * The function also rewards the caller with 0.001% of the current WH supply.
+     * @param expectedOutAmount_: The minimum amount of Warhead tokens expected to be bought with the WETH received from the sale of ICBM tokens.
+     */
     function sell(uint256 expectedOutAmount_) external inOperationsPhase {
         require(block.timestamp >= nextSellTimestamp, "Can not sell yet");
         require(day <= 150, "Sell period ended");
@@ -168,7 +182,8 @@ contract NukeTheSupply is Ownable {
 
             // See more: https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps
             ISwapRouter.ExactInputParams memory swapParams_ = ISwapRouter.ExactInputParams({
-                path: abi.encodePacked(address(ICBM), uint24(3000), WETH, uint24(3000), address(Warhead)), // use correct fee tiers
+                // @dev: We use fixed pool fee tier of 0.3% (3000)
+                path: abi.encodePacked(address(ICBM), uint24(3000), WETH, uint24(3000), address(Warhead)),
                 recipient: address(this),
                 deadline: block.timestamp,
                 amountIn: dailySell,
