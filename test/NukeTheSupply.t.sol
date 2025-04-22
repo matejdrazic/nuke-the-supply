@@ -54,7 +54,10 @@ contract NukeTheSupplyTest is Test {
     uint256 mainnetFork;
 
     address public owner = address(0xABCD);
+
+    // users
     address public user = address(0x1234);
+    address public user2 = address(0x5678);
 
     IWETH public weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH address on mainnet
 
@@ -99,6 +102,10 @@ contract NukeTheSupplyTest is Test {
         assertEq(icbm.balanceOf(owner), 125_000_000 ether);
         assertEq(warhead.balanceOf(owner), 12_500_000 ether);
         assertEq(icbm.balanceOf(address(nts)), 375_000_000 ether);
+
+        // Send some ICBM tokens to users
+        icbm.transfer(user, 1_000_000 ether);
+        icbm.transfer(user2, 1_000_000 ether);
 
         // Get 2002 weth
         vm.deal(owner, 2002 ether);
@@ -254,13 +261,60 @@ contract NukeTheSupplyTest is Test {
             console.log("Amount of Warhead tokens received from multihop swap:      ", amountOut);
         }
 
+        vm.stopPrank();
+
         // Arm -> Nuke -> Sell
-        
+        {
+            // Users arm the nts
+            vm.prank(user);
+            icbm.approve(address(nts), type(uint256).max);
+            vm.prank(user);
+            nts.arm(21 ether);
+
+            vm.prank(user2);
+            icbm.approve(address(nts), type(uint256).max);
+            vm.prank(user2);    
+            nts.arm(33 ether);
+
+            // Users should not be able to nuke before 1 day has passed
+            vm.warp(block.timestamp + 1 days - 1);
+
+            vm.prank(user);
+            vm.expectRevert("No batches ready");
+            nts.nuke();
+
+            vm.warp(block.timestamp + 1);
+
+            vm.prank(user);
+            nts.nuke();
+            assertEq(warhead.balanceOf(user), 2.1 ether);
+
+            vm.prank(user2);
+            nts.arm(1 ether);
+
+            vm.warp(block.timestamp + 1 days);
+            vm.prank(user2);
+            nts.nuke();
+
+            // Check contract state after Arming and Nuking
+            assertEq(warhead.balanceOf(user2), 3.4 ether);
+
+            assertEq(nts.totalArmedICBMAmount(), 0);
+
+            assertEq(nts.totalICBMTokensBurned(), 5.5 ether);
+        }
 
         // Test multihop swap on NukeTheSupply contract
         {
-            vm.warp(block.timestamp + 7 days);
+            vm.warp(block.timestamp + 4 days);
             nts.sell(0);
+
+            // Check contract state after selling
+            assertEq(nts.totalICMBTokensSold(), 2_500_000 ether - 5.5 ether);
+
+            assertGt(nts.totalWarheadBought(), 0);
+
+            console.log("Warhead tokens bought: ", nts.totalWarheadBought());
         }
     }
 }

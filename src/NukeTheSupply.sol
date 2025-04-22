@@ -101,10 +101,10 @@ contract NukeTheSupply is Ownable {
         totalArmedICBMAmount += amount_;
 
         // Transfer ICBM tokens from user to this contract
-        require(ICBM.transferFrom(msg.sender, address(this), amount_), "Transfer failed"); // Users send their ICBM tokens to this contract
+        require(ICBM.transferFrom(_msgSender(), address(this), amount_), "Transfer failed"); // Users send their ICBM tokens to this contract
 
         // Emit event
-        emit Armed(msg.sender, amount_, block.timestamp + ARM_DURATION);
+        emit Armed(_msgSender(), amount_, block.timestamp + ARM_DURATION);
     }
 
     /*
@@ -115,7 +115,7 @@ contract NukeTheSupply is Ownable {
      */
     function nuke() external {
         // Get the user's batches from storage
-        ArmBatch[] storage userBatches = userArmBatches[msg.sender];
+        ArmBatch[] storage userBatches = userArmBatches[_msgSender()];
         uint256 totalICBMToReturn = 0;
         uint256 totalICBMToBurn = 0;
 
