@@ -17,7 +17,7 @@ contract CounterScript is Script {
         address UNISWAP_SWAP_ROUTER = vm.envAddress("UNISWAP_SWAP_ROUTER");
 
         NukeTheSupply NTS = new NukeTheSupply(OWNER, WETH, UNISWAP_SWAP_ROUTER);
-        console.log("Counter deployed to:", address(NTS));
+        console.log("NukeTheSupply deployed to:", address(NTS));
 
         vm.stopBroadcast();
     }
