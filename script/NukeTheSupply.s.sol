@@ -12,9 +12,10 @@ contract CounterScript is Script {
     function run() public {
         vm.startBroadcast();
 
-        address OWNER = vm.envAddress("OWNER");
-        address WETH = vm.envAddress("WETH");
-        address UNISWAP_SWAP_ROUTER = vm.envAddress("UNISWAP_SWAP_ROUTER");
+        // Replace these with the actual addresses
+        address OWNER = address(1);
+        address WETH = address(2);
+        address UNISWAP_SWAP_ROUTER = address(3);
 
         NukeTheSupply NTS = new NukeTheSupply(OWNER, WETH, UNISWAP_SWAP_ROUTER);
         console.log("NukeTheSupply deployed to:", address(NTS));
