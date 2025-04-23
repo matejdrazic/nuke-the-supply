@@ -102,6 +102,7 @@ contract NukeTheSupplyTest is Test {
         assertEq(icbm.balanceOf(owner), 125_000_000 ether);
         assertEq(warhead.balanceOf(owner), 12_500_000 ether);
         assertEq(icbm.balanceOf(address(nts)), 375_000_000 ether);
+        assertEq(warhead.balanceOf(address(nts)), 0);
 
         // Send some ICBM tokens to users
         icbm.transfer(user, 1_000_000 ether);
