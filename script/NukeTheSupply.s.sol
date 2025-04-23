@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {NukeTheSupply} from "../src/NukeTheSupply.sol";
 
 contract CounterScript is Script {
-    NukeTheSupply public counter;
 
     function setUp() public {}
 
@@ -15,9 +14,9 @@ contract CounterScript is Script {
         // Replace these with the actual addresses
         address OWNER = address(1);
         address WETH = address(2);
-        address UNISWAP_SWAP_ROUTER = address(3);
+        address UNISWAP_V3_SWAP_ROUTER = address(3);
 
-        NukeTheSupply NTS = new NukeTheSupply(OWNER, WETH, UNISWAP_SWAP_ROUTER);
+        NukeTheSupply NTS = new NukeTheSupply(OWNER, WETH, UNISWAP_V3_SWAP_ROUTER);
         console.log("NukeTheSupply deployed to:", address(NTS));
 
         vm.stopBroadcast();
