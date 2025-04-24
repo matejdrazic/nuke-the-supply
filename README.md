@@ -1,4 +1,8 @@
-## Foundry
+## Nuke The Supply
+
+To run tests, please add an .env file and fill out necessary variables as seen in .env.example
+
+## Written in Foundry
 
 **Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
