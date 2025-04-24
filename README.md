@@ -1,6 +1,20 @@
 ## Nuke The Supply
 
-To run tests, please add an .env file and fill out necessary variables as seen in .env.example
+-> To run tests, please add an .env file and fill out necessary variables as seen in .env.example
+
+If you run into this error while building or testing:
+```shell
+Error (9640): Explicit type conversion not allowed from "int24" to "uint256".
+  --> lib/v3-core/contracts/libraries/TickMath.sol:25:28:
+   |
+25 |         require(absTick <= uint256(MAX_TICK), 'T');
+   |                            ^^^^^^^^^^^^^^^^^
+```
+
+Change the line in `TickMath.sol` to following:
+
+`require(absTick <= uint256(uint24(MAX_TICK)), 'T');`
+
 
 ## Written in Foundry
 
