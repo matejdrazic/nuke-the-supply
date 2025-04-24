@@ -114,208 +114,156 @@ contract NukeTheSupplyTest is Test {
 
         assertEq(weth.balanceOf(owner), 2002 ether);
 
-        // FIRST POOL INITIALIZING WETH/ICBM
-        {
-            address token0;
-            address token1;
-            // Check the order of tokens
-            if (address(icbm) < address(weth)) {
-                token0 = address(icbm);
-                token1 = address(weth);
-            } else {
-                token0 = address(weth);
-                token1 = address(icbm);
-            }
+        // Initialize the ICBM and Warhead Uniswap v3 pools
+        _initICBMPool();
+        _initWarheadPool();
 
-            // Create ICBM/WETH pool
-            address pool = uniswapFactory.createPool(token0, token1, 3000);
-            assertNotEq(pool, address(0));
-
-            uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(-115135);
-
-            // set the initial price for the pool
-            IUniswapV3Pool(pool).initialize(sqrtPriceX96);
-
-            // Approve liquidity to the position manager
-            TransferHelper.safeApprove(address(icbm), address(positionManager), type(uint256).max);
-            TransferHelper.safeApprove(address(weth), address(positionManager), type(uint256).max);
-            TransferHelper.safeApprove(address(warhead), address(positionManager), type(uint256).max);
-
-            // Add liquidity to the pool
-            INonFungiblePositionManager.MintParams memory params = INonFungiblePositionManager.MintParams({
-                token0: token0,
-                token1: token1,
-                fee: 3000,
-                tickLower: -887220,
-                tickUpper: 887220,
-                amount0Desired: 100_000_000 ether, // icbm tokens
-                amount1Desired: 1000 ether, // weth
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: address(owner),
-                deadline: block.timestamp
-            });
-            (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
-
-            // Log the amounts
-            console.log("Amount of ICBM tokens in liquidity:            ", amount0);
-            console.log("Amount of WETH tokens in liquidity:            ", amount1);
-
-            // Approve swap router to spend WETH
-            TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
-
-            // Perform a swap in the pool
-            ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
-                tokenIn: address(weth),
-                tokenOut: address(icbm),
-                fee: 3000,
-                recipient: address(owner),
-                deadline: block.timestamp,
-                amountIn: 1 ether,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-            uint256 amountOut = swapRouter.exactInputSingle(swapParams);
-            console.log("Amount of ICBM tokens received from swap:       ", amountOut);
-        }
-
-        // SECOND POOL INITIALIZING WETH/WARHEAD
-        {
-            address token0;
-            address token1;
-            // Check the order of tokens
-            if (address(warhead) < address(weth)) {
-                token0 = address(warhead);
-                token1 = address(weth);
-            } else {
-                token0 = address(weth);
-                token1 = address(warhead);
-            }
-
-            // Create ICBM/WETH pool
-            address pool = uniswapFactory.createPool(token0, token1, 3000);
-            assertNotEq(pool, address(0));
-
-            uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(-94340);
-
-            // set the initial price for the pool
-            IUniswapV3Pool(pool).initialize(sqrtPriceX96);
-
-            // Approve liquidity to the position manager
-            TransferHelper.safeApprove(address(warhead), address(positionManager), type(uint256).max);
-            TransferHelper.safeApprove(address(weth), address(positionManager), type(uint256).max);
-            TransferHelper.safeApprove(address(warhead), address(positionManager), type(uint256).max);
-
-            // Add liquidity to the pool
-            INonFungiblePositionManager.MintParams memory params = INonFungiblePositionManager.MintParams({
-                token0: token0,
-                token1: token1,
-                fee: 3000,
-                tickLower: -887220,
-                tickUpper: 887220,
-                amount0Desired: 12_500_000 ether,
-                amount1Desired: 1000 ether,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: address(owner),
-                deadline: block.timestamp
-            });
-            (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
-
-            // Log the amounts
-            console.log("Amount of Warhead tokens in liquidity:          ", amount0);
-            console.log("Amount of WETH tokens in liquidity:             ", amount1);
-
-            // Approve swap router to spend WETH
-            TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
-
-            // Perform a swap in the pool
-            ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
-                tokenIn: address(weth),
-                tokenOut: address(warhead),
-                fee: 3000,
-                recipient: address(owner),
-                deadline: block.timestamp,
-                amountIn: 1 ether,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-            uint256 amountOut = swapRouter.exactInputSingle(swapParams);
-            console.log("Amount of Warhead tokens received from swap:    ", amountOut);
-        }
-
-        // Make a multihop swap
-        {
-            TransferHelper.safeApprove(address(icbm), address(swapRouter), type(uint256).max); // approve the swapRouter to spend ICBM tokens
-
-            // See more: https://docs.uniswap.org/contracts/v3/guides/swaps/multihop-swaps
-            ISwapRouter.ExactInputParams memory swapParams_ = ISwapRouter.ExactInputParams({
-                path: abi.encodePacked(address(icbm), uint24(3000), address(weth), uint24(3000), address(warhead)), // need to put correct fee tier
-                recipient: address(this),
-                deadline: block.timestamp,
-                amountIn: 1 ether,
-                amountOutMinimum: 0 // Handle this more securely
-            });
-
-            // Executes the swap
-            uint256 amountOut = ISwapRouter(swapRouter).exactInput(swapParams_);
-            console.log("Amount of Warhead tokens received from multihop swap:      ", amountOut);
-        }
-
+        // Stop acting as the owner
         vm.stopPrank();
 
-        // Arm -> Nuke -> Sell
-        {
-            // Users arm the nts
-            vm.prank(user);
-            icbm.approve(address(nts), type(uint256).max);
-            vm.prank(user);
-            nts.arm(21 ether);
+        //// Arm -> Nuke -> Sell ////
 
-            vm.prank(user2);
-            icbm.approve(address(nts), type(uint256).max);
-            vm.prank(user2);    
-            nts.arm(33 ether);
+        // Users arm the nts
+        vm.prank(user);
+        icbm.approve(address(nts), type(uint256).max);
+        vm.prank(user);
+        nts.arm(21 ether);
 
-            // Users should not be able to nuke before 1 day has passed
-            vm.warp(block.timestamp + 1 days - 1);
+        vm.prank(user2);
+        icbm.approve(address(nts), type(uint256).max);
+        vm.prank(user2);
+        nts.arm(33 ether);
 
-            vm.prank(user);
-            vm.expectRevert("No batches ready");
-            nts.nuke();
+        // Users should not be able to nuke before 1 day has passed
+        vm.warp(block.timestamp + 1 days - 1);
 
-            vm.warp(block.timestamp + 1);
+        vm.prank(user);
+        vm.expectRevert("No batches ready");
+        nts.nuke();
 
-            vm.prank(user);
-            nts.nuke();
-            assertEq(warhead.balanceOf(user), 2.1 ether);
+        vm.warp(block.timestamp + 1);
 
-            vm.prank(user2);
-            nts.arm(1 ether);
+        vm.prank(user);
+        nts.nuke();
+        assertEq(warhead.balanceOf(user), 2.1 ether);
 
-            vm.warp(block.timestamp + 1 days);
-            vm.prank(user2);
-            nts.nuke();
+        vm.prank(user2);
+        nts.arm(1 ether);
 
-            // Check contract state after Arming and Nuking
-            assertEq(warhead.balanceOf(user2), 3.4 ether);
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(user2);
+        nts.nuke();
 
-            assertEq(nts.totalArmedICBMAmount(), 0);
+        // Check contract state after Arming and Nuking
+        assertEq(warhead.balanceOf(user2), 3.4 ether);
 
-            assertEq(nts.totalICBMTokensBurned(), 5.5 ether);
-        }
+        assertEq(nts.totalArmedICBMAmount(), 0);
+
+        assertEq(nts.totalICBMTokensBurned(), 5.5 ether);
 
         // Test multihop swap on NukeTheSupply contract
-        {
-            vm.warp(block.timestamp + 4 days);
-            nts.sell(0);
+        vm.warp(block.timestamp + 4 days);
+        nts.sell(0);
 
-            // Check contract state after selling
-            assertEq(nts.totalICMBTokensSold(), 2_500_000 ether - 5.5 ether);
+        // Check contract state after selling
+        assertEq(nts.totalICMBTokensSold(), 2_500_000 ether - 5.5 ether);
 
-            assertGt(nts.totalWarheadBought(), 0);
+        assertGt(nts.totalWarheadBought(), 0);
 
-            console.log("Warhead tokens bought: ", nts.totalWarheadBought());
-        }
+        console.log("Warhead tokens bought: ", nts.totalWarheadBought());
+    }
+
+    function _initICBMPool() internal {
+        address token0 = address(icbm) < address(weth) ? address(icbm) : address(weth);
+        address token1 = address(icbm) < address(weth) ? address(weth) : address(icbm);
+
+        address pool = uniswapFactory.createPool(token0, token1, 3000);
+        assertNotEq(pool, address(0));
+
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(-115135);
+        IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+
+        TransferHelper.safeApprove(address(icbm), address(positionManager), type(uint256).max);
+        TransferHelper.safeApprove(address(weth), address(positionManager), type(uint256).max);
+
+        INonFungiblePositionManager.MintParams memory params = INonFungiblePositionManager.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: 3000,
+            tickLower: -887220,
+            tickUpper: 887220,
+            amount0Desired: 100_000_000 ether,
+            amount1Desired: 1000 ether,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: address(owner),
+            deadline: block.timestamp
+        });
+        (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
+
+        console.log("Amount of ICBM tokens in liquidity: ", amount0);
+        console.log("Amount of WETH tokens in liquidity: ", amount1);
+
+        TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
+
+        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+            tokenIn: address(weth),
+            tokenOut: address(icbm),
+            fee: 3000,
+            recipient: address(owner),
+            deadline: block.timestamp,
+            amountIn: 1 ether,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        uint256 amountOut = swapRouter.exactInputSingle(swapParams);
+        console.log("Amount of ICBM tokens received from swap: ", amountOut);
+    }
+
+    function _initWarheadPool() internal {
+        address token0 = address(warhead) < address(weth) ? address(warhead) : address(weth);
+        address token1 = address(warhead) < address(weth) ? address(weth) : address(warhead);
+
+        address pool = uniswapFactory.createPool(token0, token1, 3000);
+        assertNotEq(pool, address(0));
+
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(-94340);
+        IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+
+        TransferHelper.safeApprove(address(warhead), address(positionManager), type(uint256).max);
+        TransferHelper.safeApprove(address(weth), address(positionManager), type(uint256).max);
+
+        INonFungiblePositionManager.MintParams memory params = INonFungiblePositionManager.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: 3000,
+            tickLower: -887220,
+            tickUpper: 887220,
+            amount0Desired: 12_500_000 ether,
+            amount1Desired: 1000 ether,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: address(owner),
+            deadline: block.timestamp
+        });
+        (,, uint256 amount0, uint256 amount1) = positionManager.mint(params);
+
+        console.log("Amount of Warhead tokens in liquidity: ", amount0);
+        console.log("Amount of WETH tokens in liquidity:    ", amount1);
+
+        TransferHelper.safeApprove(address(weth), address(swapRouter), type(uint256).max);
+
+        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+            tokenIn: address(weth),
+            tokenOut: address(warhead),
+            fee: 3000,
+            recipient: address(owner),
+            deadline: block.timestamp,
+            amountIn: 1 ether,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        uint256 amountOut = swapRouter.exactInputSingle(swapParams);
+        console.log("Amount of Warhead tokens received from swap: ", amountOut);
     }
 }
