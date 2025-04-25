@@ -71,6 +71,7 @@ contract NukeTheSupplyTest is Test {
         uniswapFactory = IUniswapV3Factory(0x1F98431c8aD98523631AE4a59f267346ea31F984);
 
         swapRouter = ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+        // swapRouter02 = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
 
         positionManager = INonFungiblePositionManager(0xC36442b4a4522E871399CD717aBDD847Ab11FE88);
 
