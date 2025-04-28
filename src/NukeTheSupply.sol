@@ -185,7 +185,7 @@ contract NukeTheSupply is Ownable {
                 // @dev: We use fixed pool fee tier of 0.3% (3000)
                 path: abi.encodePacked(address(ICBM), uint24(3000), WETH, uint24(3000), address(Warhead)),
                 recipient: address(this),
-                deadline: block.timestamp,
+                // deadline: block.timestamp,
                 amountIn: dailySell,
                 amountOutMinimum: expectedOutAmount_
             });
