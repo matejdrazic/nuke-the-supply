@@ -19,7 +19,7 @@ contract WarheadToken is ERC20Burnable, Ownable {
     }
 
     // Function to burn tokens
-    function burn(uint256 amount) public override(ERC20Burnable) onlyOwner {
+    function burn(uint256 amount) public override(ERC20Burnable) {
         super.burn(amount);
     }
 
