@@ -27,7 +27,7 @@ contract NukeTheSupply is Ownable {
     uint256 public constant ICBM_TOKEN_TOTAL_SUPPLY = 500_000_000 ether; // 500 million
     uint256 public constant INITIAL_WARHEAD_TOKEN_SUPPLY = 1_000_000 ether; // a million
     uint256 public NTS_CONTRACT_ICBM_BALANCE = 350_000_000 ether; // 350 million
-    uint256 public constant DAILY_ICBM_SELL_AMOUNT = 3_500_000 ether; // 2.5 million per day
+    uint256 public constant DAILY_ICBM_SELL_AMOUNT = 3_500_000 ether; // 3.5 million per day
 
     // Token values
     uint256 public totalArmedICBMAmount; // Total amount of user supplied tokens in "ARM" state
