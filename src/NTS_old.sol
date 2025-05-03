@@ -51,7 +51,8 @@ contract NukeTheSupply is Ownable, ReentrancyGuard {
     event Bought(uint256 day, uint256 warheadBought);
 
     // uvjeti vezani za faze rada ugovora
-    modifier inPreparationPhase() { // Matej: ovo se ne koristi jel?
+    modifier inPreparationPhase() {
+        // Matej: ovo se ne koristi jel?
         require(block.timestamp < deploymentTime + PREPARATION_DURATION, "Preparation phase ended");
         _;
     }
@@ -119,14 +120,14 @@ contract NukeTheSupply is Ownable, ReentrancyGuard {
         uint256 dailySell =
             (DEFAULT_SELL * day) > (totalSold + totalBurned) ? (DEFAULT_SELL * day) - (totalSold + totalBurned) : 0;
 
-        if (dailySell > 0 && dailySell <= remainingSupply) { // remainingSupply treba dohvatit sa ugovora, kolko ugovora ima ICBM tokena
+        if (dailySell > 0 && dailySell <= remainingSupply) {
+            // remainingSupply treba dohvatit sa ugovora, kolko ugovora ima ICBM tokena
             remainingSupply -= dailySell;
             totalSold += dailySell;
 
             /*
     ovdje ideu swapovi, izračunata količina (dailySell) prodaje se za WETH, WETH se potom koristi za kupnju WH tokena, dobiveni WH token šalje se na burn adresu
             */
-
 
             // nagrada za pozivanje funkcije dodjeljuje se pozivatelju funkcije
             uint256 whSupply = whToken.totalSupply();
@@ -187,13 +188,17 @@ contract NukeTheSupply is Ownable, ReentrancyGuard {
 
 // ICBM i WH ugovori
 
-contract ICBM is ERC20 { // Burnable
+contract ICBM is
+    ERC20 // Burnable
+{
     constructor() ERC20("ICBM", "ICBM") {
         _mint(msg.sender, 830_000_000 * 10 ** 18);
     }
 }
 
-contract Warhead is ERC20 { // Burnable
+contract Warhead is
+    ERC20 // Burnable
+{
     address public minter;
 
     constructor() ERC20("Warhead", "WH") {
@@ -207,53 +212,51 @@ contract Warhead is ERC20 { // Burnable
     }
 }
 
-
 /**
- * Evo! Ovo je plod mog razmišljanja kako učiniti nešto novo i zabavno na blockchainu, 
- * a opet da ima inovativnu "tokenomiju", jer ljudi jako pate na to :) Kad malo bolje pogledam, 
+ * Evo! Ovo je plod mog razmišljanja kako učiniti nešto novo i zabavno na blockchainu,
+ * a opet da ima inovativnu "tokenomiju", jer ljudi jako pate na to :) Kad malo bolje pogledam,
  * nije contract baš ni jednostavan, pa ću pokušati što sažetije objasniti što radi:
-
-Zamislio sam svojevrsnu "igru rata" na blockchainu između korisnika i 
-pametnog ugovora (zvanog NTS, iliti "nuke the supply"), gdje pametni ugovor ima zadatak 
-prodati supply ICBM tokena kroz 365 dana, a korisnici će koristiti funkcije namijenjene da to spriječe.
-
-Contract minta dva coina, ICBM (ICBM) i WH (Warhead). ICBM supply je 830M coinova, nakon deploya, 
-100M ide kreatoru, 730M ostaje u NTS ugovoru. Također, minta se 1000 WH tokena, samo da bi se mogao 
-napraviti trading par. Nakon deploya, ja bi ručno napravio ICBM/WETH i WH/WETH uniswap v3 parove.
-Kako sam rekao, dnevna količina za prodaju je defaultSell (830M / 365 dana), 2M dnevno.
-
-Od trenutka deploya, počinje "preparation phase" i traje 48 sati. Za to vrijeme contract ne odrađuje dnevne prodaje, 
-ali korisnici mogu koristiti svoje funkcije, "arm" i "nuke". 
-nakon "preparation phase"-a, počinje "operations phase" i traje 365 dana (to su tih 365 dana gdje NTS contract 
-prodaje preostali supply svaki dan.
-
-ovo su tri osnovne funkcije:
-- funkcija "arm" odabranu količinu ICBM tokena od korisnika šalje u contract na minimalno 24 sata, (naoružavanje raketa) - 
-    tokom tog vremena korisnici ne mogu do tih tokena. 
-- funkcija "nuke" - da bi korisnici dobili svoje ICBM tokene natrag, pokreću "nuke" funkciju, kojom uništavaju 
-dio supply-a ICBM-a koju drži NTS contract i za to bivaju nagrađeni Warhead tokenom. 
-odnos ICBM iskorišteni za "nukiranje" i ICBM uništeni u NTS contractu je 10:1, a nagrada u Warhead tokenu je 1:1, 
-po jedan Warhead token kojeg NTS contract minta i šalje korisniku, za jedan uništeni ICBM token iz preostalog supply-a.
-
- funkcija "sell": ovu funkciju sam zamislio kao automatsku, da ju ChainLink keeper izvodi ali sam od toga odustao 
- pa sam odlučio da ju pokreću korisnici i za to bivaju nagrađeni svježe mintanim WH tokenom
-NTS contract prvo računa količinu za prodati tog dana i koristi formulu:
-
-dailySell = (defaultSell * day) - (totalSold + totalBurned)
-
-totalSold i totalBurned varijable predstavljaju sveukupnu količinu koju je NTS contract prodao od početka i sveukupnu 
-količinu koju su korisnici "iznukirali" od početka. Ta formula, omogućava da NTS contract uopće ni ne proda ništa, ako su 
-korisnici bili vrijedni i marljivo nukirali protekli dan, ukoliko dailySell bude 0 ili manji od nule.
-
-NTS kontrakt bi, ako je dailySell >0, izračunatu količinu ICBM tokena prodao na uniswapu.
-Potom bi "zarađeni" WETH iskoristio za kupnju Warhead tokena
-Zatim bi kupljeni Warhead token "burnao"
-I na kraju, za nagradu onome tko je izvršio "sell" funkciju (makar ne bilo prodaje ICBM-a), NTS bi izmintao i poslao 
-Warhead token u količini 0.001% trenutnog Warhead supply-a kao kompenzaciju.
-
-Eto.. tako sam ja to nekako zamislio, kao igru na blockchainu, NTS ugovor želi prodati ICBM supply, korisnici to žele spriječiti, 
-budu li dobri, dobiju Warhead za nagradu. Ne budu li uspjevali, ugovor će pumpati cijenu Warheada 
-pa da dobiju warhead, morat će nukirati... Kreirao sam nekakvu push-pull mehaniku između ICBM i Warhead tokena izgleda, 
-možda ljudima bude zanimljivo. Oće bit šta od ovog?
-
+ *
+ * Zamislio sam svojevrsnu "igru rata" na blockchainu između korisnika i 
+ * pametnog ugovora (zvanog NTS, iliti "nuke the supply"), gdje pametni ugovor ima zadatak 
+ * prodati supply ICBM tokena kroz 365 dana, a korisnici će koristiti funkcije namijenjene da to spriječe.
+ *
+ * Contract minta dva coina, ICBM (ICBM) i WH (Warhead). ICBM supply je 830M coinova, nakon deploya, 
+ * 100M ide kreatoru, 730M ostaje u NTS ugovoru. Također, minta se 1000 WH tokena, samo da bi se mogao 
+ * napraviti trading par. Nakon deploya, ja bi ručno napravio ICBM/WETH i WH/WETH uniswap v3 parove.
+ * Kako sam rekao, dnevna količina za prodaju je defaultSell (830M / 365 dana), 2M dnevno.
+ *
+ * Od trenutka deploya, počinje "preparation phase" i traje 48 sati. Za to vrijeme contract ne odrađuje dnevne prodaje, 
+ * ali korisnici mogu koristiti svoje funkcije, "arm" i "nuke". 
+ * nakon "preparation phase"-a, počinje "operations phase" i traje 365 dana (to su tih 365 dana gdje NTS contract 
+ * prodaje preostali supply svaki dan.
+ *
+ * ovo su tri osnovne funkcije:
+ * - funkcija "arm" odabranu količinu ICBM tokena od korisnika šalje u contract na minimalno 24 sata, (naoružavanje raketa) - 
+ *     tokom tog vremena korisnici ne mogu do tih tokena. 
+ * - funkcija "nuke" - da bi korisnici dobili svoje ICBM tokene natrag, pokreću "nuke" funkciju, kojom uništavaju 
+ * dio supply-a ICBM-a koju drži NTS contract i za to bivaju nagrađeni Warhead tokenom. 
+ * odnos ICBM iskorišteni za "nukiranje" i ICBM uništeni u NTS contractu je 10:1, a nagrada u Warhead tokenu je 1:1, 
+ * po jedan Warhead token kojeg NTS contract minta i šalje korisniku, za jedan uništeni ICBM token iz preostalog supply-a.
+ *
+ *  funkcija "sell": ovu funkciju sam zamislio kao automatsku, da ju ChainLink keeper izvodi ali sam od toga odustao 
+ *  pa sam odlučio da ju pokreću korisnici i za to bivaju nagrađeni svježe mintanim WH tokenom
+ * NTS contract prvo računa količinu za prodati tog dana i koristi formulu:
+ *
+ * dailySell = (defaultSell * day) - (totalSold + totalBurned)
+ *
+ * totalSold i totalBurned varijable predstavljaju sveukupnu količinu koju je NTS contract prodao od početka i sveukupnu 
+ * količinu koju su korisnici "iznukirali" od početka. Ta formula, omogućava da NTS contract uopće ni ne proda ništa, ako su 
+ * korisnici bili vrijedni i marljivo nukirali protekli dan, ukoliko dailySell bude 0 ili manji od nule.
+ *
+ * NTS kontrakt bi, ako je dailySell >0, izračunatu količinu ICBM tokena prodao na uniswapu.
+ * Potom bi "zarađeni" WETH iskoristio za kupnju Warhead tokena
+ * Zatim bi kupljeni Warhead token "burnao"
+ * I na kraju, za nagradu onome tko je izvršio "sell" funkciju (makar ne bilo prodaje ICBM-a), NTS bi izmintao i poslao 
+ * Warhead token u količini 0.001% trenutnog Warhead supply-a kao kompenzaciju.
+ *
+ * Eto.. tako sam ja to nekako zamislio, kao igru na blockchainu, NTS ugovor želi prodati ICBM supply, korisnici to žele spriječiti, 
+ * budu li dobri, dobiju Warhead za nagradu. Ne budu li uspjevali, ugovor će pumpati cijenu Warheada 
+ * pa da dobiju warhead, morat će nukirati... Kreirao sam nekakvu push-pull mehaniku između ICBM i Warhead tokena izgleda, 
+ * možda ljudima bude zanimljivo. Oće bit šta od ovog?
  */
