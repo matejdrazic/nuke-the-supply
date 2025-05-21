@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/NukeTheSupplyWoUniswap.sol";
+import "../src/NukeTheSupplyAuctionModel.sol";
 import "../src/WeaponsMarket.sol";
 
 contract NukeTheSupplyTest is Test {
