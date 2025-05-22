@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ICBMToken is ERC20Burnable, Ownable {
-
     // Constructor for the ICBM token
     constructor(string memory name_, string memory symbol_, uint256 totalSupply_, address owner_)
         ERC20(name_, symbol_)

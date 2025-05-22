@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {NukeTheSupply} from "../src/NukeTheSupply.sol";
 
 contract CounterScript is Script {
-
     function setUp() public {}
 
     function run() public {
